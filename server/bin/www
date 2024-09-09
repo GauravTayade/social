@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+
+/* Sets up the environment variables from your .env file*/
+require("dotenv").config();
+const mongoose = require("mongoose");
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Module dependencies.
+ */
+
+var app = require("../app");
+var http = require("http");
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+var port = normalizePort(process.env.PORT || "3001");
+app.set("port", port);
+
+/**
+ * Create HTTP server.
+ */
+
+const server = http.createServer(app);
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+mongoose.connect(`mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@hatchwayspolls.0svr1.mongodb.net/${process.env.DB_NAME}?retryWrites=true&w=majority`,
+    {useNewUrlParser: true,  useUnifiedTopology: true })
+
+const db = mongoose.connection;
+
+//if connects to db then and then start listening on port.
+db.once('open',()=>{
+
+  const io = require('socket.io')(server)
+  io.on('connection',socket=>{
+    if(socket.handshake.auth.token){
+      socket.join('online')
+      console.log('room data',io.sockets.adapter.rooms)
+    }else{
+
+    }
+  })
+  server.listen(port);
+  server.on("error", onError);
+  server.on("listening", onListening);
+})
+
+//future code to save error in log file
+db.on('error',()=>{
+
+  const logfileName = new Date().toISOString().slice(0,10)+'-log.txt'
+  const logfilePath = path.resolve(__dirname,'..')+"\\logs\\"+logfileName;
+  //
+  if(!fs.existsSync(logfilePath)){
+    fs.writeFile(logfilePath,{flag:'wx'},()=>{
+      fs.writeFile(logfilePath,'demo data',()=>{
+
+      });
+    })
+  }
+
+});
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== "listen") {
+    throw error;
+  }
+
+  var bind = typeof port === "string" ? "Pipe " + port : "Port " + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case "EACCES":
+      console.error(bind + " requires elevated privileges");
+      process.exit(1);
+      break;
+    case "EADDRINUSE":
+      console.error(bind + " is already in use");
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
+
+  console.log("Listening on " + bind);
+}
